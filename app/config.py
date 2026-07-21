@@ -8,8 +8,7 @@ class Settings(BaseSettings):
     app_version: str = "0.8.0"
     environment: str = "development"
     debug: bool = True
-
-    database_url: str = "sqlite:///./opportunity_radar.db"
+    database_url: str = "sqlite:///./opportunity_radar_v3.db"
 
     discovery_concurrency: int = 4
     discovery_schedule_hours: int = 24
