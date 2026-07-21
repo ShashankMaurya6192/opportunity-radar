@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}My Profile{% endblock %}{% block content %}
+<div class="head"><div><p class="eyebrow">PERSONAL MATCH ENGINE</p><h1>Your job profile</h1><p>Opportunity Radar uses this information to calculate your match score.</p></div></div>
+<div class="panel formpanel"><form method="post" class="stack">
+<div class="grid two compact"><div><label>Name</label><input class="form-control" name="name" value="{{profile.name}}" required></div><div><label>Years of experience</label><input class="form-control" type="number" step=".1" name="years_experience" value="{{profile.years_experience}}" required></div></div>
+<label>Headline</label><input class="form-control" name="headline" value="{{profile.headline}}" required>
+<label>Skills — comma separated</label><textarea class="form-control" rows="5" name="skills" required>{{profile.skills}}</textarea>
+<label>Preferred roles — comma separated</label><textarea class="form-control" rows="4" name="preferred_roles" required>{{profile.preferred_roles}}</textarea>
+<label>Preferred countries or regions</label><textarea class="form-control" rows="3" name="preferred_countries">{{profile.preferred_countries}}</textarea>
+<div class="grid two compact"><div><label>Work mode</label><input class="form-control" name="preferred_work_mode" value="{{profile.preferred_work_mode}}"></div><div><label>Availability</label><input class="form-control" name="availability" value="{{profile.availability}}"></div></div>
+<label>Minimum preferred match score</label><input class="form-control" type="number" min="0" max="100" name="minimum_match_score" value="{{profile.minimum_match_score}}">
+<label>Email signature</label><textarea class="form-control" rows="4" name="email_signature">{{profile.email_signature}}</textarea>
+<button class="btn btn-primary">Save profile</button></form></div>
+{% endblock %}

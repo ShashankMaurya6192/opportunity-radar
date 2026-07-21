@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Dashboard · Opportunity Radar{% endblock %}
+{% block content %}
+<div class="head"><div><p class="eyebrow">COMMAND CENTER</p><h1>Job-hunt intelligence</h1><p>Companies, active roles, match scores, changes and follow-ups in one place.</p></div><a class="btn btn-primary" href="/discover">Discover opportunities</a></div>
+<div class="metrics">
+{% for label,value in [('Companies',stats.companies),('Score 70+',stats.high),('Active jobs',stats.jobs),('Interviews',stats.interviews),('Follow-ups',stats.followups)] %}
+<div class="metric"><span>{{label}}</span><strong>{{value}}</strong></div>{% endfor %}
+</div>
+<div class="grid two">
+<section class="panel"><div class="panel-head"><h3>Score distribution</h3></div><canvas id="distChart" height="160"></canvas></section>
+<section class="panel"><div class="panel-head"><h3>Recent companies</h3><a href="/companies">View all</a></div>
+{% for c in recent %}<a class="rowlink" href="/companies/{{c.id}}"><div><b>{{c.name}}</b><small>{{c.domain}} · {{c.technologies or 'No stack yet'}}</small></div><div class="score {{'good' if c.combined_score>=70 else 'warn' if c.combined_score>=40 else 'bad'}}">{{c.combined_score}}</div></a>{% else %}<div class="empty">No data yet. Run Discover.</div>{% endfor %}
+</section></div>
+<div class="grid two mt-4">
+<section class="panel"><div class="panel-head"><h3>Opportunity changes</h3></div>
+{% for e in events %}<div class="event"><span class="event-dot i{{e.importance}}"></span><div><b>{{e.title}}</b><small>{{e.company.name}} · {{e.created_at.strftime('%d %b %H:%M')}}</small></div></div>{% else %}<div class="empty">No changes recorded yet.</div>{% endfor %}
+</section>
+<section class="panel"><div class="panel-head"><h3>Upcoming follow-ups</h3></div>
+{% for c in followups %}<a class="rowlink" href="/companies/{{c.id}}"><div><b>{{c.name}}</b><small>{{c.status.replace('_',' ')}}</small></div><span>{{c.next_follow_up_at.strftime('%d %b')}}</span></a>{% else %}<div class="empty">No follow-ups scheduled.</div>{% endfor %}
+</section></div>
+{% endblock %}
+{% block scripts %}<script>
+new Chart(document.getElementById('distChart'),{type:'doughnut',data:{labels:{{dist.keys()|list|tojson}},datasets:[{data:{{dist.values()|list|tojson}}}]},options:{cutout:'68%',plugins:{legend:{position:'bottom'}}}});
+</script>{% endblock %}

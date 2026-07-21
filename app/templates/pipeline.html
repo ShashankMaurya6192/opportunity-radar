@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Pipeline{% endblock %}{% block content %}
+<div class="head"><div><p class="eyebrow">OUTREACH CRM</p><h1>Pipeline</h1><p>Move opportunities from discovery to offer.</p></div></div>
+<div class="kanban">{% for status,items in columns.items() %}<section class="kanban-col"><h3>{{status.replace('_',' ')}} <span>{{items|length}}</span></h3>{% for c in items %}<div class="kanban-card"><a href="/companies/{{c.id}}"><b>{{c.name}}</b><small>{{c.technologies or c.domain}}</small></a><div class="kanban-foot"><span class="score {{'good' if c.combined_score>=70 else 'warn'}}">{{c.combined_score}}</span><form method="post" action="/pipeline/{{c.id}}"><select name="status" onchange="this.form.submit()">{% for s in statuses %}<option {{'selected' if s==status else ''}}>{{s}}</option>{% endfor %}</select></form></div></div>{% endfor %}</section>{% endfor %}</div>
+{% endblock %}

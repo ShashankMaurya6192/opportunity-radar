@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Companies{% endblock %}{% block content %}
+<div class="head"><div><p class="eyebrow">COMPANY DATABASE</p><h1>Companies</h1><p>Generic opportunity score plus your personal match score.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add">Add company</button></div>
+<form class="filters">
+<input class="form-control" name="q" value="{{filters.q}}" placeholder="Search company, stack or notes">
+<select class="form-select" name="status"><option value="">All statuses</option>{% for s in statuses %}<option {{'selected' if filters.status==s else ''}}>{{s}}</option>{% endfor %}</select>
+<select class="form-select" name="technology"><option value="">All technologies</option>{% for t in techs %}<option {{'selected' if filters.technology==t else ''}}>{{t}}</option>{% endfor %}</select>
+<input class="form-control" type="number" name="min_score" value="{{filters.min_score}}" min="0" max="100">
+<select class="form-select" name="sort"><option value="score">Best score</option><option value="delta" {{'selected' if filters.sort=='delta' else ''}}>Biggest increase</option><option value="recent" {{'selected' if filters.sort=='recent' else ''}}>Recently updated</option><option value="name" {{'selected' if filters.sort=='name' else ''}}>Name</option></select>
+<label class="check"><input type="checkbox" name="priority" value="1" {{'checked' if filters.priority else ''}}> Priority</label>
+<button class="btn btn-dark">Filter</button></form>
+<div class="panel table-panel"><table class="table align-middle"><thead><tr><th>Company</th><th>Stack</th><th>Status</th><th>Opportunity</th><th>Your match</th><th>Combined</th><th>Change</th></tr></thead><tbody>
+{% for c in companies %}<tr onclick="location.href='/companies/{{c.id}}'"><td><b>{{'★ ' if c.priority else ''}}{{c.name}}</b><small>{{c.domain}} · {{c.country or 'Country unset'}}</small></td><td>{{c.technologies or 'Unknown'}}</td><td><span class="pill">{{c.status.replace('_',' ')}}</span></td><td>{{c.opportunity_score}}</td><td>{{c.match_score}}</td><td><span class="score {{'good' if c.combined_score>=70 else 'warn' if c.combined_score>=40 else 'bad'}}">{{c.combined_score}}</span></td><td class="{{'up' if c.score_delta>0 else 'down' if c.score_delta<0 else ''}}">{{'+' if c.score_delta>0 else ''}}{{c.score_delta}}</td></tr>
+{% else %}<tr><td class="empty" colspan="7">No matching companies.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="panel mt-4"><h4>Bulk import websites</h4><form action="/import" method="post" enctype="multipart/form-data" class="d-flex gap-2"><input class="form-control" type="file" name="file" accept=".txt,.csv" required><button class="btn btn-outline-primary">Import and analyze</button></form></div>
+<div class="modal fade" id="add"><div class="modal-dialog"><div class="modal-content"><form method="post" action="/companies/add"><div class="modal-header"><h5>Add company</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input class="form-control" name="url" placeholder="example.com" required></div><div class="modal-footer"><button class="btn btn-primary">Crawl and save</button></div></form></div></div></div>
+{% endblock %}

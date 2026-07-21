@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Analytics{% endblock %}{% block content %}
+<div class="head"><div><p class="eyebrow">ANALYTICS</p><h1>What your search is finding</h1><p>Pipeline, technologies and geography.</p></div></div>
+<div class="grid three"><section class="panel"><h3>Status</h3><canvas id="status"></canvas></section><section class="panel"><h3>Technologies</h3><canvas id="tech"></canvas></section><section class="panel"><h3>Countries</h3><canvas id="country"></canvas></section></div>
+{% endblock %}{% block scripts %}<script>
+const make=(id,type,labels,data)=>new Chart(document.getElementById(id),{type,data:{labels,datasets:[{data}]},options:{indexAxis:type==='bar'?'y':'x',plugins:{legend:{display:type!=='bar'}}}});
+make('status','doughnut',{{status_counts.keys()|list|tojson}},{{status_counts.values()|list|tojson}});
+make('tech','bar',{{tech_counts.keys()|list|tojson}},{{tech_counts.values()|list|tojson}});
+make('country','bar',{{country_counts.keys()|list|tojson}},{{country_counts.values()|list|tojson}});
+</script>{% endblock %}
