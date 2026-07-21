@@ -22,7 +22,7 @@ if (Test-Path "requirements-dev.txt") {
     & $Python -m pip install -r requirements-dev.txt
 }
 
-& $Python -m alembic -c alembic.ini upgrade head
+& "$VenvDir\Scripts\alembic.exe" -c alembic.ini upgrade head
 & $Python -m pytest -q
 
 Write-Host ""
