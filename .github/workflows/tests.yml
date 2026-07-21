@@ -30,7 +30,7 @@ jobs:
       - name: Run migrations against a fresh database
         env:
           OR_DATABASE_URL: sqlite:///./ci_fresh.db
-        run: python -m alembic -c alembic.ini upgrade head
+        run: alembic -c alembic.ini upgrade head
 
       - name: Run test suite
         env:
