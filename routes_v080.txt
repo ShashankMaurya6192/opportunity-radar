@@ -1,0 +1,43 @@
+@app.get("/resume", response_class=HTMLResponse)
+def resume_page(request:Request,db:Session=Depends(get_db)):
+    profile=get_profile(db); matches=[]
+    for company in db.scalars(select(Company).where(Company.archived==False)).all():
+        for job,match in match_company_jobs(profile,company): matches.append((job,company,match))
+    matches.sort(key=lambda x:x[2].score,reverse=True)
+    return render(request,"resume.html",{"profile":profile,"matches":matches[:50]})
+
+@app.post("/resume")
+def save_resume(resume_text:str=Form(""),db:Session=Depends(get_db)):
+    profile=get_profile(db); profile.resume_text=resume_text.strip()
+    for company in db.scalars(select(Company).where(Company.archived==False)).all():
+        for job,match in match_company_jobs(profile,company):
+            job.match_score=match.score; job.match_details=json.dumps(match.as_dict(),ensure_ascii=False)
+    db.commit(); return RedirectResponse("/resume",303)
+
+@app.get("/companies/{company_id}/intelligence",response_class=HTMLResponse)
+def company_intelligence(company_id:int,request:Request,db:Session=Depends(get_db)):
+    company=db.get(Company,company_id)
+    if not company: raise HTTPException(404)
+    return render(request,"intelligence.html",{"company":company,"report":report_from_company(company),"job_reports":match_company_jobs(get_profile(db),company)})
+
+@app.post("/companies/{company_id}/intelligence/refresh")
+def refresh_company_intelligence(company_id:int,db:Session=Depends(get_db)):
+    company=db.get(Company,company_id)
+    if not company: raise HTTPException(404)
+    report=report_from_company(company)
+    company.intelligence_summary=report.summary; company.intelligence_json=report.as_json(); company.company_type=report.company_type; company.estimated_size=report.estimated_size; company.hiring_probability=report.hiring_probability; company.engineering_maturity=report.engineering_maturity; company.outreach_probability=report.outreach_probability; company.risk_level=report.risk_level
+    for job,match in match_company_jobs(get_profile(db),company): job.match_score=match.score; job.match_details=json.dumps(match.as_dict(),ensure_ascii=False)
+    db.commit(); return RedirectResponse(f"/companies/{company_id}/intelligence",303)
+
+@app.get("/companies/{company_id}/outreach",response_class=HTMLResponse)
+def outreach_lab(company_id:int,request:Request,channel:str="email",contact_name:str="",db:Session=Depends(get_db)):
+    company=db.get(Company,company_id)
+    if not company: raise HTTPException(404)
+    channel=channel if channel in {"email","linkedin"} else "email"
+    return render(request,"outreach_lab.html",{"company":company,"draft":build_personalized_outreach(company,get_profile(db),channel,contact_name),"channel":channel,"contact_name":contact_name})
+
+@app.get("/api/companies/{company_id}/intelligence")
+def api_company_intelligence(company_id:int,db:Session=Depends(get_db)):
+    company=db.get(Company,company_id)
+    if not company: raise HTTPException(404)
+    return report_from_company(company).as_dict()

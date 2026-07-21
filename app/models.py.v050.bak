@@ -17,7 +17,6 @@ class UserProfile(Base):
     availability: Mapped[str] = mapped_column(String(120), default="Immediate")
     minimum_match_score: Mapped[int] = mapped_column(Integer, default=60)
     email_signature: Mapped[str] = mapped_column(Text, default="Best regards,\nShashank")
-    resume_text: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Company(Base):
@@ -37,14 +36,6 @@ class Company(Base):
     contact_url: Mapped[str] = mapped_column(String(500), default="")
     public_emails: Mapped[str] = mapped_column(Text, default="")
     evidence: Mapped[str] = mapped_column(Text, default="")
-    intelligence_summary: Mapped[str] = mapped_column(Text, default="")
-    intelligence_json: Mapped[str] = mapped_column(Text, default="")
-    company_type: Mapped[str] = mapped_column(String(120), default="")
-    estimated_size: Mapped[str] = mapped_column(String(80), default="")
-    hiring_probability: Mapped[int] = mapped_column(Integer, default=0)
-    engineering_maturity: Mapped[int] = mapped_column(Integer, default=0)
-    outreach_probability: Mapped[int] = mapped_column(Integer, default=0)
-    risk_level: Mapped[str] = mapped_column(String(30), default="Low")
 
     opportunity_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
     match_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
@@ -84,8 +75,6 @@ class Job(Base):
     url: Mapped[str] = mapped_column(String(700))
     location: Mapped[str] = mapped_column(String(180), default="")
     skills: Mapped[str] = mapped_column(Text, default="")
-    description: Mapped[str] = mapped_column(Text, default="")
-    match_details: Mapped[str] = mapped_column(Text, default="")
     match_score: Mapped[int] = mapped_column(Integer, default=0)
     is_remote: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
