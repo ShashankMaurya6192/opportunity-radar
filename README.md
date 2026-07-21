@@ -24,3 +24,10 @@ A local opportunity-intelligence and job-hunt CRM.
 ## Responsible use
 Use public company information only. Respect website terms, robots.txt and rate limits.
 Do not scrape LinkedIn or guess private email addresses. Review every outreach message.
+
+
+## v0.4.0 + v0.5.0
+
+The project now includes environment-based configuration, logging, Alembic migrations,
+tests, maintenance commands, and a multi-query discovery engine with deduplication and
+campaign run history. See `INSTALL_V040_V050.md` for upgrade instructions.

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import asyncio, csv, io, json
+import asyncio, csv, io, json, logging
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
@@ -11,17 +11,24 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, or_, desc, asc
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .database import Base, engine, SessionLocal
+from .exceptions import register_exception_handlers
+from .logging_config import configure_logging
 from .models import *
 from .services.crawler import crawl_company, crawl_many, domain_from_url
 from .services.github import analyze_github
 from .services.scoring import opportunity_score, profile_match
 from .services.outreach import build_outreach
 from .services.scheduler import scheduler
+from .services.discovery import discover_companies
 
+configure_logging()
+logger = logging.getLogger(__name__)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Opportunity Radar v3")
+app = FastAPI(title=settings.app_name, version=settings.app_version, debug=settings.debug)
+register_exception_handlers(app)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -130,20 +137,33 @@ async def run_campaign(campaign_id: int):
     db = SessionLocal()
     try:
         campaign = db.get(DiscoveryCampaign, campaign_id)
-        if not campaign or not campaign.enabled: return
-        query = f"{campaign.query} {campaign.country}".strip()
-        results = list(DDGS().text(query, max_results=min(campaign.result_limit, 30)))
-        urls = []
-        for item in results:
-            u = item.get("href") or item.get("url")
-            if u and domain_from_url(u):
-                urls.append(u)
-        crawled = await crawl_many(urls, concurrency=4)
-        for result in crawled:
-            if "error" not in result:
-                save_result(db, result, query)
-        campaign.last_run_at = datetime.utcnow()
-        db.commit()
+        if not campaign or not campaign.enabled:
+            return
+        run = DiscoveryRun(campaign_id=campaign.id, query=campaign.query)
+        db.add(run); db.commit(); db.refresh(run)
+        try:
+            batch = await discover_companies(
+                campaign.query, campaign.country, campaign.result_limit,
+                campaign.remote_only, settings.discovery_concurrency,
+            )
+            saved = 0
+            for result in batch.crawled:
+                if "error" not in result:
+                    company = save_result(db, result, " | ".join(batch.queries))
+                    if company.combined_score >= campaign.minimum_score:
+                        saved += 1
+            run.status = "COMPLETED" if not batch.errors else "COMPLETED_WITH_ERRORS"
+            run.candidates_found = len(batch.candidates)
+            run.companies_saved = saved
+            run.errors = "\n".join(batch.errors)
+        except Exception as exc:
+            logger.exception("Campaign %s failed", campaign.id)
+            run.status = "FAILED"
+            run.errors = str(exc)
+        finally:
+            run.finished_at = datetime.utcnow()
+            campaign.last_run_at = datetime.utcnow()
+            db.commit()
     finally:
         db.close()
 
@@ -163,7 +183,7 @@ def startup():
     get_profile(db)
     db.close()
     if not scheduler.running:
-        scheduler.add_job(scheduler_tick, "interval", hours=24, id="daily_campaigns", replace_existing=True)
+        scheduler.add_job(scheduler_tick, "interval", hours=settings.discovery_schedule_hours, id="daily_campaigns", replace_existing=True)
         scheduler.start()
 
 def render(request, name, context):
@@ -288,25 +308,38 @@ def discover_page(request:Request,db:Session=Depends(get_db)):
     return render(request,"discover.html",{"campaigns":campaigns,"results":None})
 
 @app.post("/discover", response_class=HTMLResponse)
-async def discover(request:Request,query:str=Form(...),country:str=Form(""),limit:int=Form(10),save_campaign:str|None=Form(None),campaign_name:str=Form(""),db:Session=Depends(get_db)):
-    full=f"{query} {country}".strip()
+async def discover(request:Request,query:str=Form(...),country:str=Form(""),limit:int=Form(15),minimum_score:int=Form(0),remote_only:str|None=Form(None),save_campaign:str|None=Form(None),campaign_name:str=Form(""),db:Session=Depends(get_db)):
     output=[]
-    try:
-        search=list(DDGS().text(full,max_results=min(limit,30)))
-        urls=[]
-        for item in search:
-            u=item.get("href") or item.get("url")
-            if u and domain_from_url(u): urls.append(u)
-        for result in await crawl_many(urls,concurrency=4):
-            if "error" in result: output.append({"url":result.get("website"),"status":result["error"],"id":None})
-            else:
-                c=save_result(db,result,full);output.append({"url":c.website,"status":f"Saved · score {c.combined_score}","id":c.id})
-        if save_campaign:
-            db.add(DiscoveryCampaign(name=campaign_name or full,query=query,country=country,result_limit=limit));db.commit()
-    except Exception as exc:
-        output.append({"url":"","status":f"Search failed: {exc}","id":None})
+    batch = await discover_companies(query, country, limit, remote_only == "on")
+    for result in batch.crawled:
+        if "error" in result:
+            output.append({"url":result.get("website"),"status":result["error"],"id":None})
+        else:
+            c=save_result(db,result," | ".join(batch.queries))
+            status = f"Saved · score {c.combined_score}"
+            if c.combined_score < minimum_score:
+                status += f" · below campaign threshold {minimum_score}"
+            output.append({"url":c.website,"status":status,"id":c.id})
+    for error in batch.errors:
+        output.append({"url":"Search provider","status":error,"id":None})
+    run = DiscoveryRun(
+        query=query, status="COMPLETED" if not batch.errors else "COMPLETED_WITH_ERRORS",
+        candidates_found=len(batch.candidates), companies_saved=sum(1 for item in output if item.get("id")),
+        errors="\n".join(batch.errors), finished_at=datetime.utcnow(),
+    )
+    db.add(run)
+    if save_campaign:
+        db.add(DiscoveryCampaign(
+            name=campaign_name or query, query=query, country=country, result_limit=limit,
+            remote_only=remote_only == "on", minimum_score=minimum_score,
+        ))
+    db.commit()
     campaigns=db.scalars(select(DiscoveryCampaign).order_by(desc(DiscoveryCampaign.created_at))).all()
-    return render(request,"discover.html",{"campaigns":campaigns,"results":output,"query":query,"country":country})
+    return render(request,"discover.html",{
+        "campaigns":campaigns,"results":output,"query":query,"country":country,
+        "limit":limit,"minimum_score":minimum_score,"remote_only":remote_only,
+        "generated_queries":batch.queries,
+    })
 
 @app.post("/campaigns/{campaign_id}/run")
 async def run_campaign_now(campaign_id:int):
@@ -316,6 +349,13 @@ async def run_campaign_now(campaign_id:int):
 @app.post("/campaigns/{campaign_id}/toggle")
 def toggle_campaign(campaign_id:int,db:Session=Depends(get_db)):
     c=db.get(DiscoveryCampaign,campaign_id);c.enabled=not c.enabled;db.commit()
+    return RedirectResponse("/discover",303)
+
+@app.post("/campaigns/{campaign_id}/delete")
+def delete_campaign(campaign_id:int,db:Session=Depends(get_db)):
+    campaign=db.get(DiscoveryCampaign,campaign_id)
+    if campaign:
+        db.delete(campaign);db.commit()
     return RedirectResponse("/discover",303)
 
 @app.get("/analytics", response_class=HTMLResponse)
@@ -334,7 +374,7 @@ def analytics(request:Request,db:Session=Depends(get_db)):
     return render(request,"analytics.html",{"status_counts":status_counts,"tech_counts":top_tech,"country_counts":top_country})
 
 @app.get("/settings", response_class=HTMLResponse)
-def settings(request:Request,db:Session=Depends(get_db)):
+def settings_page(request:Request,db:Session=Depends(get_db)):
     return render(request,"settings.html",{"profile":get_profile(db)})
 
 @app.post("/settings")
@@ -377,3 +417,13 @@ def api_stats(db:Session=Depends(get_db)):
 def api_companies(db:Session=Depends(get_db)):
     rows=db.scalars(select(Company).where(Company.archived==False).order_by(desc(Company.combined_score))).all()
     return [{"id":c.id,"name":c.name,"domain":c.domain,"score":c.combined_score,"opportunity_score":c.opportunity_score,"match_score":c.match_score,"status":c.status} for c in rows]
+
+
+@app.get("/health")
+def health():
+    return {"status":"ok","version":settings.app_version,"environment":settings.environment}
+
+@app.get("/api/discovery/runs")
+def api_discovery_runs(db:Session=Depends(get_db)):
+    runs=db.scalars(select(DiscoveryRun).order_by(desc(DiscoveryRun.started_at)).limit(50)).all()
+    return [{"id":r.id,"query":r.query,"status":r.status,"candidates":r.candidates_found,"saved":r.companies_saved,"started_at":r.started_at.isoformat()} for r in runs]

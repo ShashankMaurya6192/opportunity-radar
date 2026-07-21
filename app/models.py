@@ -36,7 +36,6 @@ class Company(Base):
     contact_url: Mapped[str] = mapped_column(String(500), default="")
     public_emails: Mapped[str] = mapped_column(Text, default="")
     evidence: Mapped[str] = mapped_column(Text, default="")
-
     opportunity_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
     match_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
     combined_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
@@ -48,7 +47,6 @@ class Company(Base):
     contact_score: Mapped[int] = mapped_column(Integer, default=0)
     score_reasons: Mapped[str] = mapped_column(Text, default="")
     match_reasons: Mapped[str] = mapped_column(Text, default="")
-
     status: Mapped[str] = mapped_column(String(40), default="NEW", index=True)
     priority: Mapped[bool] = mapped_column(Boolean, default=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -60,7 +58,6 @@ class Company(Base):
     next_follow_up_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
     jobs: Mapped[list["Job"]] = relationship(back_populates="company", cascade="all, delete-orphan")
     contacts: Mapped[list["Contact"]] = relationship(back_populates="company", cascade="all, delete-orphan")
     activities: Mapped[list["Activity"]] = relationship(back_populates="company", cascade="all, delete-orphan")
@@ -138,9 +135,25 @@ class DiscoveryCampaign(Base):
     query: Mapped[str] = mapped_column(String(500))
     country: Mapped[str] = mapped_column(String(180), default="")
     result_limit: Mapped[int] = mapped_column(Integer, default=10)
+    remote_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    minimum_score: Mapped[int] = mapped_column(Integer, default=0)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    runs: Mapped[list["DiscoveryRun"]] = relationship(back_populates="campaign", cascade="all, delete-orphan")
+
+class DiscoveryRun(Base):
+    __tablename__ = "discovery_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("discovery_campaigns.id"), nullable=True, index=True)
+    query: Mapped[str] = mapped_column(String(700))
+    status: Mapped[str] = mapped_column(String(40), default="RUNNING")
+    candidates_found: Mapped[int] = mapped_column(Integer, default=0)
+    companies_saved: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[str] = mapped_column(Text, default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    campaign: Mapped[DiscoveryCampaign | None] = relationship(back_populates="runs")
 
 class AppSetting(Base):
     __tablename__ = "app_settings"

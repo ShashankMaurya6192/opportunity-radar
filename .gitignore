@@ -37,3 +37,8 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+*.db-journal
+logs/
+backups/
+*.pyc
+app/main.py.bak
