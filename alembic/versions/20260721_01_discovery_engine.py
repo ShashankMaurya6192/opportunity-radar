@@ -1,11 +1,11 @@
-﻿"""Add v0.5 discovery fields and run history."""
+"""Add v0.5 discovery fields and run history."""
 
 from alembic import op
 import sqlalchemy as sa
 
 
 revision = "20260721_01"
-down_revision = None
+down_revision = "20260721_0000"
 branch_labels = None
 depends_on = None
 
