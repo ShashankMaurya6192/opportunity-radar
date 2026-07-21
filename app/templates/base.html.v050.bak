@@ -13,7 +13,6 @@
 <a href="/pipeline" class="{{'active' if request.url.path=='/pipeline' else ''}}">Pipeline</a>
 <a href="/discover" class="{{'active' if request.url.path=='/discover' else ''}}">Discover</a>
 <a href="/analytics" class="{{'active' if request.url.path=='/analytics' else ''}}">Analytics</a>
-<a href="/resume">Resume Intelligence</a>
 <a href="/settings" class="{{'active' if request.url.path=='/settings' else ''}}">My Profile</a>
 <a href="/export.csv">Export CSV</a>
 </nav><p class="side-note">Public research only. Review leads and messages before outreach.</p>
